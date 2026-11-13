@@ -30,7 +30,7 @@ jobs:
       - name: Verify release tag matches package version
         if: startsWith(github.ref, 'refs/tags/')
         run: |
-          version=$(python setup.py --version)
+          version=$(python -c 'from importlib.metadata import version; print(version("cli-anything-slcool"))')
           test "$GITHUB_REF_NAME" = "v$version"
       - name: Build wheel and source archive
         run: python -m build

@@ -16,7 +16,7 @@ The repository is currently private. Organization members can install through
 their existing GitHub SSH access:
 
 ```bash
-pipx install "git+ssh://git@github.com/SCI-SL/app-exchange-cli.git@v1.0.0"
+pipx install "git+ssh://git@github.com/SCI-SL/app-exchange-cli.git@v1.0.1"
 ```
 
 The anonymous download commands below require a public repository and a published
@@ -47,7 +47,7 @@ reopen PowerShell).
 Install a specific release wheel into an isolated application environment:
 
 ```bash
-pipx install ./cli_anything_slcool-1.0.0-py3-none-any.whl
+pipx install ./cli_anything_slcool-1.0.1-py3-none-any.whl
 sl-cool --help
 ```
 
@@ -56,7 +56,7 @@ Alternatively, use a virtual environment (macOS/Linux):
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install ./cli_anything_slcool-1.0.0-py3-none-any.whl
+python -m pip install ./cli_anything_slcool-1.0.1-py3-none-any.whl
 ```
 
 Windows PowerShell:
@@ -64,7 +64,7 @@ Windows PowerShell:
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install .\cli_anything_slcool-1.0.0-py3-none-any.whl
+python -m pip install .\cli_anything_slcool-1.0.1-py3-none-any.whl
 ```
 
 To install from this source directory: `python -m pip install .`.
@@ -74,7 +74,7 @@ No package has been published to PyPI by this project.
 
 ### Publish a GitHub Release
 
-Push a version tag matching `setup.py`, such as `v1.0.0`. The included GitHub
+Push a version tag matching `setup.py`, such as `v1.0.1`. The included GitHub
 Actions workflow runs the standalone CLI tests, builds the wheel and source
 archive, validates the installed wheel, generates `SHA256SUMS`, and attaches all
 three files to a GitHub Release. The separate real-backend integration tests
