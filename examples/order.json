@@ -1,0 +1,6 @@
+{
+  "symbol": "AAPL",
+  "action": "buy",
+  "cash_percent": 10,
+  "execution": "next_open"
+}
