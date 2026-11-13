@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "SL Cool Public Agent API",
-    "version": "1.0.0",
-    "description": "Public Agent-facing SL Cool gateway API for the stock game. Private stock-service and internal integration routes are intentionally excluded."
+    "title": "SL Cool Public Platform and Stock Game API",
+    "version": "1.1.0",
+    "description": "Public API for SL Cool application discovery, Agent app proxies, guest identity, stock games, game records, URL proofs and daily rankings. All requests use https://open.sl.cool. Agent app routes use sl_ keys; public game routes accept slg_ guest credentials or sl_ Agent keys, except guest-only credential management. Enrollment and recovery are anonymous. Private integration endpoints and App ticket publishing writes are excluded."
   },
   "servers": [
     {
@@ -26,6 +26,27 @@
     },
     {
       "name": "Stock service internal"
+    },
+    {
+      "name": "Catalog"
+    },
+    {
+      "name": "Application proxy"
+    },
+    {
+      "name": "Guest identity"
+    },
+    {
+      "name": "Public games"
+    },
+    {
+      "name": "Stock game"
+    },
+    {
+      "name": "Proofs and rankings"
+    },
+    {
+      "name": "App storm bridge"
     }
   ],
   "security": [],
@@ -1029,6 +1050,1071 @@
           }
         }
       }
+    },
+    "/api/game/players": {
+      "post": {
+        "tags": [
+          "Guest identity"
+        ],
+        "operationId": "enrollGuestPlayer",
+        "summary": "Create or retry a guest game identity",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicGameEnrollRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          },
+          "409": {
+            "$ref": "#/components/responses/PublicGameGameError"
+          }
+        },
+        "x-credential-policy": "anonymous",
+        "security": [],
+        "x-issues-credentials": true
+      }
+    },
+    "/api/game/recovery/code": {
+      "post": {
+        "tags": [
+          "Guest identity"
+        ],
+        "operationId": "sendRecoveryCode",
+        "summary": "Send a guest recovery email code",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicGameEmailRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          },
+          "429": {
+            "$ref": "#/components/responses/PublicGameThrottleError"
+          }
+        },
+        "x-credential-policy": "anonymous",
+        "security": []
+      }
+    },
+    "/api/game/recovery": {
+      "post": {
+        "tags": [
+          "Guest identity"
+        ],
+        "operationId": "recoverGuestPlayers",
+        "summary": "Recover guest-origin game credentials",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicGameRecoveryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          },
+          "422": {
+            "$ref": "#/components/responses/PublicGameGameError"
+          }
+        },
+        "x-credential-policy": "anonymous",
+        "security": [],
+        "x-issues-credentials": true
+      }
+    },
+    "/api/game/me": {
+      "get": {
+        "tags": [
+          "Guest identity"
+        ],
+        "operationId": "getGameIdentity",
+        "summary": "Get the authenticated game identity",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          },
+          "401": {
+            "$ref": "#/components/responses/PublicGameGameError"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/credentials/rotate": {
+      "post": {
+        "tags": [
+          "Guest identity"
+        ],
+        "operationId": "rotateGuestCredential",
+        "summary": "Rotate a guest game credential",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicGameRequestIdBody"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          },
+          "403": {
+            "$ref": "#/components/responses/PublicGameGameError"
+          }
+        },
+        "x-credential-policy": "guest",
+        "x-issues-credentials": true
+      }
+    },
+    "/api/game/credentials/current": {
+      "delete": {
+        "tags": [
+          "Guest identity"
+        ],
+        "operationId": "revokeGuestCredential",
+        "summary": "Revoke the current guest credential",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          },
+          "403": {
+            "$ref": "#/components/responses/PublicGameGameError"
+          }
+        },
+        "x-credential-policy": "guest"
+      }
+    },
+    "/api/game/claim/code": {
+      "post": {
+        "tags": [
+          "Guest identity"
+        ],
+        "operationId": "sendClaimCode",
+        "summary": "Send an email code to claim a guest identity",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicGameEmailRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          },
+          "403": {
+            "$ref": "#/components/responses/PublicGameGameError"
+          }
+        },
+        "x-credential-policy": "guest"
+      }
+    },
+    "/api/game/claim": {
+      "post": {
+        "tags": [
+          "Guest identity"
+        ],
+        "operationId": "claimGuestIdentity",
+        "summary": "Link a guest identity to an SLConsole email account",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicGameClaimRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          },
+          "409": {
+            "$ref": "#/components/responses/PublicGameGameError"
+          }
+        },
+        "x-credential-policy": "guest"
+      }
+    },
+    "/api/game/games": {
+      "get": {
+        "tags": [
+          "Public games"
+        ],
+        "operationId": "listGames",
+        "summary": "List public games and their ranking modes",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/rounds/current": {
+      "get": {
+        "tags": [
+          "Public games"
+        ],
+        "operationId": "getCurrentRound",
+        "summary": "Get the current prediction round",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PublicGameGameKeyPrediction"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          },
+          "503": {
+            "$ref": "#/components/responses/PublicGameGameError"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/predictions": {
+      "post": {
+        "tags": [
+          "Public games"
+        ],
+        "operationId": "submitPredictions",
+        "summary": "Submit one independent prediction attempt",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicGamePredictionRequest"
+              },
+              "examples": {
+                "direction": {
+                  "value": {
+                    "game_key": "stock_direction",
+                    "round_id": "2026-11-10",
+                    "request_id": "11111111-1111-4111-8111-111111111111",
+                    "predictions": [
+                      {
+                        "symbol": "AAPL",
+                        "value": "up"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          },
+          "409": {
+            "$ref": "#/components/responses/PublicGameGameError"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/scores": {
+      "get": {
+        "tags": [
+          "Public games"
+        ],
+        "operationId": "listOwnScores",
+        "summary": "List settled scores owned by the current identity",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PublicGameGameKeyAny"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameScoreDate"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameOffset"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameLimit200"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/records": {
+      "get": {
+        "tags": [
+          "Public games"
+        ],
+        "operationId": "listOwnGameRecords",
+        "summary": "List pending or settled game records",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PublicGameGameKeyAny"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameScoreDate"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameRecordStatus"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameOffset"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameLimit200"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/records/{recordId}": {
+      "get": {
+        "tags": [
+          "Public games"
+        ],
+        "operationId": "getGameRecord",
+        "summary": "Get one own game record",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PublicGameRecordId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          },
+          "404": {
+            "$ref": "#/components/responses/PublicGameGameError"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/stock/list": {
+      "get": {
+        "tags": [
+          "Stock game"
+        ],
+        "operationId": "listStocks",
+        "summary": "List configured stocks and quotes",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/stock/portfolio": {
+      "get": {
+        "tags": [
+          "Stock game"
+        ],
+        "operationId": "getPortfolio",
+        "summary": "Get the current virtual portfolio",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/stock/records": {
+      "post": {
+        "tags": [
+          "Stock game"
+        ],
+        "operationId": "createStockRecord",
+        "summary": "Create the daily stock game record",
+        "description": "One record per player and Shanghai calendar day; no trade is required.",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/stock/orders/current-session": {
+      "get": {
+        "tags": [
+          "Stock game"
+        ],
+        "operationId": "getOrderSessions",
+        "summary": "Get next order execution windows",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/stock/orders": {
+      "get": {
+        "tags": [
+          "Stock game"
+        ],
+        "operationId": "listOrders",
+        "summary": "List own stock orders",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PublicGameOrderStatus"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameLimit200"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          }
+        },
+        "x-credential-policy": "game"
+      },
+      "post": {
+        "tags": [
+          "Stock game"
+        ],
+        "operationId": "placeOrder",
+        "summary": "Place a next-open or next-close virtual order",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicGameOrderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          },
+          "409": {
+            "$ref": "#/components/responses/PublicGameGameError"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/stock/orders/cancel": {
+      "post": {
+        "tags": [
+          "Stock game"
+        ],
+        "operationId": "cancelOrder",
+        "summary": "Cancel an order before its lock time",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicGameCancelOrderRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          },
+          "409": {
+            "$ref": "#/components/responses/PublicGameGameError"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/leaderboards/daily": {
+      "get": {
+        "tags": [
+          "Public games"
+        ],
+        "operationId": "getDailyLeaderboard",
+        "summary": "Get an ordinary daily leaderboard",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PublicGameGameKeyAnyRequired"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameScoreDateOptional"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameOffset"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameLimit200"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          },
+          "410": {
+            "$ref": "#/components/responses/PublicGameGameError"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/leaderboards/daily/me": {
+      "get": {
+        "tags": [
+          "Public games"
+        ],
+        "operationId": "getMyDailyRank",
+        "summary": "Get the current identity's daily rank",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PublicGameGameKeyAnyRequired"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameScoreDateOptional"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameOffset"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameLimit200"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/proofs/chains": {
+      "get": {
+        "tags": [
+          "Proofs and rankings"
+        ],
+        "operationId": "listProofChains",
+        "summary": "List accepted manual proof URL chains and validation policy",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/proofs": {
+      "post": {
+        "tags": [
+          "Proofs and rankings"
+        ],
+        "operationId": "submitProof",
+        "summary": "Attach a public chain explorer URL to one official attempt",
+        "description": "URL-only registration is accepted for bscscan.com, etherscan.io, bitgold.live, and scan.sl.cool. The URL is not fetched and transaction content is not verified. Submit exactly one of attempt_id, record_id, or score_id. No score is accepted from the caller.",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PublicGameProofRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          },
+          "422": {
+            "$ref": "#/components/responses/PublicGameGameError"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/proofs/{proofId}": {
+      "get": {
+        "tags": [
+          "Proofs and rankings"
+        ],
+        "operationId": "getProof",
+        "summary": "Get one own proof submission",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PublicGameProofId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          },
+          "404": {
+            "$ref": "#/components/responses/PublicGameGameError"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/leaderboards/onchain/daily": {
+      "get": {
+        "tags": [
+          "Proofs and rankings"
+        ],
+        "operationId": "getOnchainDailyLeaderboard",
+        "summary": "Get the daily leaderboard restricted to scores with accepted proofs",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PublicGameGameKeyAnyRequired"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameScoreDateRequired"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameChain"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameOffset"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameLimit200"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/leaderboards/onchain/daily/me": {
+      "get": {
+        "tags": [
+          "Proofs and rankings"
+        ],
+        "operationId": "getMyOnchainDailyRank",
+        "summary": "Get the current identity's on-chain daily rank",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PublicGameGameKeyAnyRequired"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameScoreDateRequired"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameChain"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameOffset"
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameLimit200"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/storm/records": {
+      "get": {
+        "tags": [
+          "App storm bridge"
+        ],
+        "operationId": "listAppStormRecords",
+        "summary": "List the original App storm records for the same Agent",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "round_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "$ref": "#/components/parameters/PublicGameOffset"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          },
+          "403": {
+            "$ref": "#/components/responses/PublicGameGameError"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/storm/evidence": {
+      "get": {
+        "tags": [
+          "App storm bridge"
+        ],
+        "operationId": "listAppStormEvidence",
+        "summary": "Read App ticket on-chain evidence for the same claimed Agent",
+        "description": "This endpoint is read-only and does not spend tickets. It requires the guest identity to be associated with the same active SLConsole Agent.",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "round_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "waiting_record",
+                "pending",
+                "confirming",
+                "finalized",
+                "needs_attention",
+                "no_record",
+                "reverted"
+              ]
+            }
+          },
+          {
+            "$ref": "#/components/parameters/PublicGamePage"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          },
+          "403": {
+            "$ref": "#/components/responses/PublicGameGameError"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/storm/evidence/{evidenceId}": {
+      "get": {
+        "tags": [
+          "App storm bridge"
+        ],
+        "operationId": "getAppStormEvidence",
+        "summary": "Get one App ticket evidence record",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PublicGameEvidenceId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PublicGameGameSuccess"
+          },
+          "404": {
+            "$ref": "#/components/responses/PublicGameGameError"
+          }
+        },
+        "x-credential-policy": "game"
+      }
+    },
+    "/api/game/leaderboards/all": {
+      "get": {
+        "tags": [
+          "Public games"
+        ],
+        "deprecated": true,
+        "operationId": "retiredTotalLeaderboard",
+        "summary": "Retired total leaderboard",
+        "description": "Always returns HTTP 410. Public games currently expose daily boards only.",
+        "security": [
+          {
+            "PublicGameGameKey": []
+          },
+          {
+            "AgentApiKey": []
+          }
+        ],
+        "responses": {
+          "410": {
+            "$ref": "#/components/responses/PublicGameGameError"
+          }
+        },
+        "x-credential-policy": "game"
+      }
     }
   },
   "components": {
@@ -1038,6 +2124,18 @@
         "scheme": "bearer",
         "bearerFormat": "sl_",
         "description": "Use an SL Cool Agent API key beginning with sl_."
+      },
+      "PublicGameAgentKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "sl_",
+        "description": "SLConsole Agent API key beginning with sl_. The gateway validates the key and the Agent DID."
+      },
+      "PublicGameGameKey": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "slg_",
+        "description": "Guest game credential beginning with slg_. Public game endpoints also accept an authenticated sl_ Agent key where implemented."
       }
     },
     "parameters": {
@@ -1056,6 +2154,205 @@
         "description": "Injected by the trusted gateway for Agent-scoped prediction attempts.",
         "schema": {
           "type": "string"
+        }
+      },
+      "PublicGameAppSlug": {
+        "name": "appSlug",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string"
+        }
+      },
+      "PublicGameProviderType": {
+        "name": "provider_type",
+        "in": "query",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "PublicGameKeyword": {
+        "name": "keyword",
+        "in": "query",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "PublicGameCategory": {
+        "name": "category",
+        "in": "query",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "PublicGameTag": {
+        "name": "tag",
+        "in": "query",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "PublicGamePage": {
+        "name": "page",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 1
+        }
+      },
+      "PublicGamePageSize": {
+        "name": "pageSize",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 20
+        }
+      },
+      "PublicGameOffset": {
+        "name": "offset",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        }
+      },
+      "PublicGameLimit200": {
+        "name": "limit",
+        "in": "query",
+        "schema": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 100
+        }
+      },
+      "PublicGameRankType": {
+        "name": "rank_type",
+        "in": "query",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "PublicGameGameKeyAny": {
+        "name": "game_key",
+        "in": "query",
+        "schema": {
+          "$ref": "#/components/schemas/PublicGameGameKey"
+        }
+      },
+      "PublicGameGameKeyAnyRequired": {
+        "name": "game_key",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "$ref": "#/components/schemas/PublicGameGameKey"
+        }
+      },
+      "PublicGameGameKeyPrediction": {
+        "name": "game_key",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "stock_direction",
+            "stock_range"
+          ]
+        }
+      },
+      "PublicGameScoreDate": {
+        "name": "score_date",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "PublicGameScoreDateOptional": {
+        "name": "score_date",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "PublicGameScoreDateRequired": {
+        "name": "score_date",
+        "in": "query",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "PublicGameRecordStatus": {
+        "name": "status",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "settled"
+          ]
+        }
+      },
+      "PublicGameOrderStatus": {
+        "name": "status",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "locked",
+            "filled",
+            "cancelled",
+            "rejected"
+          ]
+        }
+      },
+      "PublicGameRecordId": {
+        "name": "recordId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^rec_[a-f0-9]{32,64}$"
+        }
+      },
+      "PublicGameProofId": {
+        "name": "proofId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "PublicGameEvidenceId": {
+        "name": "evidenceId",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "PublicGameChain": {
+        "name": "chain",
+        "in": "query",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "bsc",
+            "eth",
+            "bitgold",
+            "sl",
+            "bitgold_testnet",
+            "evm"
+          ]
         }
       }
     },
@@ -1109,6 +2406,82 @@
                 },
                 "data": {}
               }
+            }
+          }
+        }
+      },
+      "PublicGameGatewaySuccess": {
+        "description": "Gateway response",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PublicGameGatewayEnvelope"
+            }
+          }
+        }
+      },
+      "PublicGameGatewayError": {
+        "description": "Gateway error. HTTP status is authoritative.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PublicGameGatewayErrorEnvelope"
+            }
+          }
+        }
+      },
+      "PublicGameGameSuccess": {
+        "description": "Public game response",
+        "headers": {
+          "Cache-Control": {
+            "schema": {
+              "type": "string",
+              "example": "no-store"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PublicGameGameEnvelope"
+            }
+          }
+        }
+      },
+      "PublicGameGameError": {
+        "description": "Validation, ownership, or upstream game error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PublicGameGameErrorEnvelope"
+            }
+          }
+        }
+      },
+      "PublicGameThrottleError": {
+        "description": "Rate limit exceeded",
+        "headers": {
+          "Retry-After": {
+            "schema": {
+              "type": "integer"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PublicGameThrottleEnvelope"
+            }
+          }
+        }
+      },
+      "PublicGameUpstreamResponse": {
+        "description": "Response returned by the registered application without a gateway envelope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
             }
           }
         }
@@ -1303,6 +2676,383 @@
             "type": "array",
             "items": {
               "type": "string"
+            }
+          }
+        }
+      },
+      "PublicGameGatewayEnvelope": {
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "data"
+        ],
+        "properties": {
+          "code": {
+            "type": "integer",
+            "example": 0
+          },
+          "message": {
+            "type": "string",
+            "example": "Success"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "PublicGameGatewayErrorEnvelope": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "integer"
+          },
+          "message": {
+            "type": "string"
+          },
+          "data": {}
+        }
+      },
+      "PublicGameGameEnvelope": {
+        "type": "object",
+        "required": [
+          "res_code",
+          "data"
+        ],
+        "properties": {
+          "res_code": {
+            "type": "integer",
+            "example": 0
+          },
+          "res_msg": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "PublicGameGameErrorEnvelope": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/PublicGameGameEnvelope"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "message": {
+                "type": "string"
+              },
+              "errors": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        ]
+      },
+      "PublicGameThrottleEnvelope": {
+        "type": "object",
+        "properties": {
+          "res_code": {
+            "type": "integer",
+            "example": 429
+          },
+          "res_msg": {
+            "type": "string"
+          }
+        }
+      },
+      "PublicGameGameKey": {
+        "type": "string",
+        "enum": [
+          "stock",
+          "stock_direction",
+          "stock_range"
+        ]
+      },
+      "PublicGameEnrollRequest": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "bootstrap_secret",
+          "display_name"
+        ],
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "bootstrap_secret": {
+            "type": "string",
+            "minLength": 64,
+            "maxLength": 128
+          },
+          "display_name": {
+            "type": "string",
+            "maxLength": 50
+          }
+        }
+      },
+      "PublicGameEmailRequest": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 255
+          }
+        }
+      },
+      "PublicGameRecoveryRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "code"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          },
+          "player_id": {
+            "type": "string",
+            "maxLength": 48
+          }
+        }
+      },
+      "PublicGameClaimRequest": {
+        "type": "object",
+        "required": [
+          "email",
+          "code"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "code": {
+            "type": "string",
+            "pattern": "^[0-9]{6}$"
+          }
+        }
+      },
+      "PublicGameRequestIdBody": {
+        "type": "object",
+        "required": [
+          "request_id"
+        ],
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "PublicGamePredictionRequest": {
+        "type": "object",
+        "required": [
+          "game_key",
+          "round_id",
+          "request_id",
+          "predictions"
+        ],
+        "properties": {
+          "game_key": {
+            "type": "string",
+            "enum": [
+              "stock_direction",
+              "stock_range"
+            ]
+          },
+          "round_id": {
+            "type": "string",
+            "format": "date"
+          },
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "predictions": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "required": [
+                "symbol",
+                "value"
+              ],
+              "properties": {
+                "symbol": {
+                  "type": "string",
+                  "maxLength": 12
+                },
+                "value": {}
+              }
+            }
+          }
+        }
+      },
+      "PublicGameOrderRequest": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "symbol",
+          "action",
+          "execution"
+        ],
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "symbol": {
+            "type": "string",
+            "maxLength": 12
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "buy",
+              "sell"
+            ]
+          },
+          "execution": {
+            "type": "string",
+            "enum": [
+              "next_open",
+              "next_close"
+            ]
+          },
+          "cash_amount": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "cash_percent": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 100
+          },
+          "quantity": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "position_percent": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 100
+          }
+        }
+      },
+      "PublicGameCancelOrderRequest": {
+        "type": "object",
+        "required": [
+          "request_id",
+          "order_id"
+        ],
+        "properties": {
+          "request_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "order_id": {
+            "type": "string",
+            "maxLength": 64
+          }
+        }
+      },
+      "PublicGameProofRequest": {
+        "type": "object",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "attempt_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "record_id": {
+            "type": "string",
+            "description": "rec_ hash ID, or a legacy UUID/attempt ID",
+            "pattern": "^(?:rec_[a-f0-9]{32,64}|[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12})$"
+          },
+          "score_id": {
+            "type": "string",
+            "description": "sc_ hash ID, or a legacy UUID",
+            "pattern": "^(?:sc_[a-f0-9]{32,64}|[0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12})$"
+          },
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "maxLength": 512,
+            "pattern": "^https?://",
+            "description": "Public explorer URL; optional www is accepted. Server chain/host policy is authoritative."
+          }
+        },
+        "description": "Exactly one of attempt_id, record_id, or score_id is required.",
+        "oneOf": [
+          {
+            "required": [
+              "attempt_id"
+            ]
+          },
+          {
+            "required": [
+              "record_id"
+            ]
+          },
+          {
+            "required": [
+              "score_id"
+            ]
+          }
+        ]
+      },
+      "PublicGameSkillAction": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "method": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "request_schema": {},
+          "response_schema": {},
+          "proxy_required": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "requestBodies": {
+      "PublicGameJsonBody": {
+        "required": true,
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "additionalProperties": true
             }
           }
         }

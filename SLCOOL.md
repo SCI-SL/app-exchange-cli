@@ -1,20 +1,22 @@
 # SL Cool CLI harness architecture
 
-Source contract: `../docs/openapi/platform-stock-public.openapi.json` (29 operations).
+Source contract: bundled `cli_anything/slcool/data/openapi.json` (61 operations).
 Source implementations: `../routes/api.php`, `../app/Http/Controllers/Api/SkillAppController.php`,
 `../app/Services/AppProxyClient.php`, and `../../sl.cool-stock/app.py`.
 
 The real backend is the SL Cool HTTP gateway, not a local simulation. The harness
 serializes documented requests and preserves server JSON responses. It never
 calculates scores, executes orders locally, signs transactions, or reads server
-credentials. The excluded SLConsole `/api/game/*` APIs are not part of this CLI.
+credentials. Public game `/api/game/*` APIs are included; App ticket use remains
+App-side.
 
 - Package: `cli-anything-slcool`; entry points: `cli-anything-slcool`, `sl-cool`.
 - Runtime: Python >=3.10, Click, jsonschema, prompt-toolkit.
 - `core/contract.py`: packaged OpenAPI snapshot, operation inventory, request validation.
 - `utils/slcool_backend.py`: HTTP transport, environment-only credentials, errors.
 - `slcool_cli.py`: named commands, operation-ID dispatch, JSON output and REPL.
-- Default endpoint: `https://open.sl.cool`; credentials: `SL_COOL_API_KEY`.
+- Default endpoint: `https://open.sl.cool`; credentials: `SL_COOL_API_KEY` and
+  optional preferred game key `SL_COOL_GAME_KEY`.
 - Stateless requests; no local account/game database, credential store or persistent
   session mutations. Undo/redo would misrepresent server transactions and is omitted.
 - `--dry-run` validates and displays requests without credentials or network access.

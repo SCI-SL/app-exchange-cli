@@ -3,8 +3,10 @@
 import json
 import os
 import re
+import secrets
 import shlex
 import sys
+import uuid
 from pathlib import Path
 
 import click
@@ -35,8 +37,8 @@ def load_json(value):
         raise InputError("Cannot read JSON; use valid inline JSON, @file.json, or @-") from None
 
 
-def output(value, json_mode=False):
-    value = redact(value, os.environ.get("SL_COOL_API_KEY", ""))
+def output(value, json_mode=False, *, show_credentials=False):
+    value = redact(value, os.environ.get("SL_COOL_API_KEY", ""), show_credentials=show_credentials)
     if json_mode:
         click.echo(json.dumps(value, ensure_ascii=False, allow_nan=False))
     elif isinstance(value, str):
@@ -103,7 +105,7 @@ class JsonGroup(click.Group):
 @click.version_option(__version__)
 @click.pass_context
 def cli(ctx, origin, timeout, json_mode, dry_run):
-    """SL Cool public Agent API. Credentials: SL_COOL_API_KEY (never stored).
+    """SL Cool Agent and guest game API. Keys: SL_COOL_API_KEY / SL_COOL_GAME_KEY.
 
     Start without a subcommand for an interactive REPL. Use --json before or after
     a subcommand. Use api list to discover all supported operations.
@@ -129,8 +131,11 @@ def cli(ctx, origin, timeout, json_mode, dry_run):
             ctx.invoke(repl)
 
 
-def dispatch(ctx, operation_id, paths=None, query=None, body=None, dry_run=False):
+def dispatch(ctx, operation_id, paths=None, query=None, body=None, dry_run=False,
+             show_credentials=False):
     req = prepare(operation_id, paths, query, body)
+    if show_credentials and not req["issues_credentials"]:
+        raise InputError("--show-credentials is only supported for enroll, recover and rotate")
     if dry_run or ctx.obj["dry_run"]:
         value = {
             "dry_run": True,
@@ -139,10 +144,22 @@ def dispatch(ctx, operation_id, paths=None, query=None, body=None, dry_run=False
             "url": ctx.obj["origin"] + req["path"],
             "body": req["body"],
             "authentication_required": req["authenticated"],
+            "credential_policy": req["credential_policy"],
         }
     else:
-        value = execute(req, ctx.obj["origin"], ctx.obj["timeout"])
-    output(value, ctx.obj["json"])
+        value = execute(req, ctx.obj["origin"], ctx.obj["timeout"], show_credentials=show_credentials)
+    output(value, ctx.obj["json"], show_credentials=show_credentials and not value_is_dry_run(ctx, dry_run))
+
+
+def value_is_dry_run(ctx, dry_run):
+    return dry_run or ctx.obj["dry_run"]
+
+
+def reject_retired(op):
+    if op.get("deprecated"):
+        if op["operationId"] == "retiredTotalLeaderboard":
+            raise InputError("Public total leaderboard is retired (410); use game leaderboard daily")
+        raise InputError("Immediate trade is retired; use orders place with next_open or next_close")
 
 
 def flag_name(name):
@@ -152,6 +169,9 @@ def flag_name(name):
 def named_command(operation_id, name):
     op = operation(operation_id)
     params = [click.Option(["--dry-run"], is_flag=True, help="Validate without sending a request.")]
+    if op.get("x-issues-credentials"):
+        params.append(click.Option(["--show-credentials"], is_flag=True,
+                                   help="Print newly issued guest keys. Keep stdout private."))
     bindings = []
     for param in op["parameters"]:
         key = "p_" + param["name"]
@@ -191,6 +211,7 @@ def named_command(operation_id, name):
         query = pairs(values.pop("query", ()))
         paths = {}
         dry_run = values.pop("dry_run", False)
+        show_credentials = values.pop("show_credentials", False)
         for key, location, prop, schema in bindings:
             value = values.pop(key, None)
             if value is None:
@@ -208,11 +229,8 @@ def named_command(operation_id, name):
                 body[prop] = value
             else:
                 (paths if location == "path" else query)[prop] = value
-        if op.get("deprecated"):
-            raise InputError(
-                "Immediate trade is retired; use orders place with next_open or next_close"
-            )
-        dispatch(ctx, operation_id, paths, query, body, dry_run)
+        reject_retired(op)
+        dispatch(ctx, operation_id, paths, query, body, dry_run, show_credentials)
 
     help_text = op["summary"] + ".\n\nOperation ID: " + operation_id
     if op.get("description"):
@@ -222,12 +240,14 @@ def named_command(operation_id, name):
     )
 
 
-for _operation_id, (_group_name, _name) in COMMANDS.items():
-    if _group_name not in cli.commands:
-        cli.add_command(
-            click.Group(
-                _group_name,
-                help={
+for _operation_id, _parts in COMMANDS.items():
+    _parent = cli
+    for _group_name in _parts[:-1]:
+        if _group_name not in _parent.commands:
+            group_help = (
+                "Public game " + _group_name + " operations."
+                if _parts[0] == "game"
+                else {
                     "platform": "Public skill documents and manifest (no key required).",
                     "apps": "Public application catalog and rankings (no key required).",
                     "agent": "Authenticated application discovery and skills.",
@@ -235,10 +255,33 @@ for _operation_id, (_group_name, _name) in COMMANDS.items():
                     "stock": "Quotes, portfolio and legacy portfolio leaderboards.",
                     "orders": "Virtual stock orders; writes are never retried automatically.",
                     "predictions": "Legacy prediction rounds, submissions and leaderboards.",
-                }[_group_name],
-            )
-        )
-    cli.commands[_group_name].add_command(named_command(_operation_id, _name))
+                    "game": "Public games for guests (slg_) and Agents (sl_).",
+                }.get(_group_name, "Public API operations."))
+            _parent.add_command(click.Group(_group_name, help=group_help))
+        _parent = _parent.commands[_group_name]
+    _parent.add_command(named_command(_operation_id, _parts[-1]))
+
+
+@cli.commands["game"].command("prepare-enrollment")
+@click.option("--display-name", required=True, help="Guest display name (1-50 characters).")
+@click.option("--output", "path", required=True, type=click.Path(path_type=Path))
+@click.pass_context
+def prepare_enrollment(ctx, display_name, path):
+    """Create a private, reusable enrollment JSON file locally; no HTTP request."""
+    if not 1 <= len(display_name) <= 50:
+        raise InputError("Display name must contain 1-50 characters")
+    if ctx.obj["dry_run"]:
+        raise InputError("prepare-enrollment writes a local file; omit --dry-run to create it")
+    body = {"request_id": str(uuid.uuid4()), "bootstrap_secret": secrets.token_hex(32),
+            "display_name": display_name}
+    try:
+        fd = os.open(path.expanduser(), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            json.dump(body, stream, ensure_ascii=False, indent=2)
+            stream.write("\n")
+    except OSError:
+        raise InputError("Cannot create enrollment file; choose a new path in an existing directory") from None
+    output({"file": str(path.expanduser().resolve()), "request_id": body["request_id"]}, ctx.obj["json"])
 
 
 @cli.group()
@@ -257,6 +300,7 @@ def api_list(ctx):
                 "method": op["method"],
                 "path": op["path"],
                 "authenticated": op["authenticated"],
+                "credential_policy": op["credential_policy"],
                 "deprecated": op.get("deprecated", False),
             }
             for key, op in operations().items()
@@ -281,12 +325,13 @@ def api_describe(ctx, operation_id):
 @click.option("--query", multiple=True, help="Query NAME=VALUE; repeatable.")
 @click.option("--body", help="JSON object, @file.json, or @-.")
 @click.option("--dry-run", is_flag=True)
+@click.option("--show-credentials", is_flag=True, help="Reveal issued guest keys (issuance only).")
 @click.pass_context
-def api_call(ctx, operation_id, param, query, body, dry_run):
-    if operation(operation_id).get("deprecated"):
-        raise InputError("Immediate trade is retired; use gatewayPlaceOrder")
+def api_call(ctx, operation_id, param, query, body, dry_run, show_credentials):
+    reject_retired(operation(operation_id))
     dispatch(
-        ctx, operation_id, pairs(param), pairs(query), load_json(body) if body else None, dry_run
+        ctx, operation_id, pairs(param), pairs(query), load_json(body) if body else None, dry_run,
+        show_credentials,
     )
 
 
@@ -310,7 +355,8 @@ def config(ctx):
             "base_url": ctx.obj["origin"],
             "timeout": ctx.obj["timeout"],
             "api_key_configured": bool(os.environ.get("SL_COOL_API_KEY")),
-            "credential_source": "SL_COOL_API_KEY",
+            "game_key_configured": bool(os.environ.get("SL_COOL_GAME_KEY")),
+            "credential_source": "SL_COOL_API_KEY for Agent routes; SL_COOL_GAME_KEY then SL_COOL_API_KEY for games",
             "version": __version__,
         },
         ctx.obj["json"],
@@ -356,14 +402,7 @@ def repl(ctx):
             if not args or args[0] == "repl":
                 skin.error("Already in the REPL")
                 continue
-            if args[0] in cli.commands:
-                first = cli.commands[args[0]]
-                if isinstance(first, click.Group) and len(args) > 1 and args[1] in first.commands:
-                    args = args[:2] + prefix + args[2:]
-                else:
-                    args = args[:1] + prefix + args[1:]
-            else:
-                args = prefix + args
+            args = prefix + args
             cli.main(args=args, prog_name="sl-cool")
         except ValueError:
             skin.error("Unclosed quote; use help for command syntax")

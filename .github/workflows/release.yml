@@ -22,7 +22,7 @@ jobs:
       - name: Test standalone CLI contract and inputs
         env:
           CLI_ANYTHING_FORCE_INSTALLED: '1'
-        run: python -m pytest cli_anything/slcool/tests/test_core.py -q
+        run: python -m pytest cli_anything/slcool/tests/test_core.py cli_anything/slcool/tests/test_guest.py -q
       - name: Check code and Unix installer
         run: |
           ruff check cli_anything/slcool
@@ -40,7 +40,7 @@ jobs:
           /tmp/slcool-wheel/bin/python -m pip install dist/*.whl
           cd /tmp
           /tmp/slcool-wheel/bin/sl-cool api list --json > slcool-operations.json
-          /tmp/slcool-wheel/bin/python -c 'import json; data=json.load(open("slcool-operations.json")); assert len(data) == 29, data'
+          /tmp/slcool-wheel/bin/python -c 'import json; data=json.load(open("slcool-operations.json")); assert len(data) == 61, data'
       - name: Generate checksums
         run: sha256sum dist/*.whl dist/*.tar.gz > dist/SHA256SUMS
       - uses: actions/upload-artifact@v4

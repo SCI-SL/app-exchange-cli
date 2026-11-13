@@ -40,6 +40,38 @@ COMMANDS = {
     "gatewayPredictionLeaderboard": ("predictions", "leaderboard"),
     "gatewayPredictionRank": ("predictions", "rank"),
     "retiredGatewayTrade": ("stock", "retired-trade"),
+    "enrollGuestPlayer": ("game", "enroll"),
+    "sendRecoveryCode": ("game", "recovery", "send-code"),
+    "recoverGuestPlayers": ("game", "recovery", "recover"),
+    "getGameIdentity": ("game", "me"),
+    "rotateGuestCredential": ("game", "credentials", "rotate"),
+    "revokeGuestCredential": ("game", "credentials", "revoke"),
+    "sendClaimCode": ("game", "claim", "send-code"),
+    "claimGuestIdentity": ("game", "claim", "confirm"),
+    "listGames": ("game", "list"),
+    "getCurrentRound": ("game", "rounds", "current"),
+    "submitPredictions": ("game", "predictions", "submit"),
+    "listOwnScores": ("game", "scores", "list"),
+    "listOwnGameRecords": ("game", "records", "list"),
+    "getGameRecord": ("game", "records", "get"),
+    "listStocks": ("game", "stock", "quotes"),
+    "getPortfolio": ("game", "stock", "portfolio"),
+    "createStockRecord": ("game", "stock", "record"),
+    "getOrderSessions": ("game", "orders", "sessions"),
+    "listOrders": ("game", "orders", "list"),
+    "placeOrder": ("game", "orders", "place"),
+    "cancelOrder": ("game", "orders", "cancel"),
+    "getDailyLeaderboard": ("game", "leaderboard", "daily"),
+    "getMyDailyRank": ("game", "leaderboard", "rank"),
+    "listProofChains": ("game", "proofs", "chains"),
+    "submitProof": ("game", "proofs", "submit"),
+    "getProof": ("game", "proofs", "get"),
+    "getOnchainDailyLeaderboard": ("game", "leaderboard", "proofs"),
+    "getMyOnchainDailyRank": ("game", "leaderboard", "proof-rank"),
+    "listAppStormRecords": ("game", "storm", "records"),
+    "listAppStormEvidence": ("game", "storm", "evidence"),
+    "getAppStormEvidence": ("game", "storm", "evidence-get"),
+    "retiredTotalLeaderboard": ("game", "leaderboard", "retired-total"),
 }
 
 
@@ -80,6 +112,9 @@ def operations():
             op.update(path=path, method=method.upper())
             op["parameters"] = resolve(item.get("parameters", []) + op.get("parameters", []))
             op["authenticated"] = bool(op.get("security", specification().get("security")))
+            op["credential_policy"] = op.get(
+                "x-credential-policy", "agent" if op["authenticated"] else "anonymous"
+            )
             found[op["operationId"]] = op
     if set(found) != set(COMMANDS):
         raise RuntimeError("CLI command map and bundled OpenAPI operations differ")
@@ -188,7 +223,7 @@ def prepare(operation_id, path_params=None, query=None, body=None):
             raise InputError("Missing JSON body; use --body @file.json or named body options")
         if body is not None:
             validate(body, body_schema(op), "body")
-    if operation_id == "gatewayPlaceOrder" and body:
+    if operation_id in ("gatewayPlaceOrder", "placeOrder") and body:
         expected = (
             ("cash_amount", "cash_percent")
             if body["action"] == "buy"
@@ -207,5 +242,7 @@ def prepare(operation_id, path_params=None, query=None, body=None):
         "path": path + ("?" + urlencode(encoded, doseq=True) if encoded else ""),
         "body": body,
         "authenticated": op["authenticated"],
+        "credential_policy": op["credential_policy"],
+        "issues_credentials": op.get("x-issues-credentials", False),
         "operation_id": operation_id,
     }

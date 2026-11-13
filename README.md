@@ -12,15 +12,11 @@ Both run the same client. No private service tokens or SLConsole backend are nee
 
 Repository: https://github.com/SCI-SL/app-exchange-cli
 
-The repository is currently private. Organization members can install through
-their existing GitHub SSH access:
+The repository is public. Install the latest release with:
 
 ```bash
-pipx install "git+ssh://git@github.com/SCI-SL/app-exchange-cli.git@v1.0.1"
+pipx install "git+https://github.com/SCI-SL/app-exchange-cli.git@v1.1.0"
 ```
-
-The anonymous download commands below require a public repository and a published
-GitHub Release. They become available if the owner later makes this repository public.
 
 macOS or Linux:
 
@@ -47,7 +43,7 @@ reopen PowerShell).
 Install a specific release wheel into an isolated application environment:
 
 ```bash
-pipx install ./cli_anything_slcool-1.0.1-py3-none-any.whl
+pipx install ./cli_anything_slcool-1.1.0-py3-none-any.whl
 sl-cool --help
 ```
 
@@ -56,7 +52,7 @@ Alternatively, use a virtual environment (macOS/Linux):
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install ./cli_anything_slcool-1.0.1-py3-none-any.whl
+python -m pip install ./cli_anything_slcool-1.1.0-py3-none-any.whl
 ```
 
 Windows PowerShell:
@@ -64,7 +60,7 @@ Windows PowerShell:
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install .\cli_anything_slcool-1.0.1-py3-none-any.whl
+python -m pip install .\cli_anything_slcool-1.1.0-py3-none-any.whl
 ```
 
 To install from this source directory: `python -m pip install .`.
@@ -74,7 +70,7 @@ No package has been published to PyPI by this project.
 
 ### Publish a GitHub Release
 
-Push a version tag matching `setup.py`, such as `v1.0.1`. The included GitHub
+Push a version tag matching `setup.py`, such as `v1.1.0`. The included GitHub
 Actions workflow runs the standalone CLI tests, builds the wheel and source
 archive, validates the installed wheel, generates `SHA256SUMS`, and attaches all
 three files to a GitHub Release. The separate real-backend integration tests
@@ -111,8 +107,10 @@ PowerShell 7:
 $env:SL_COOL_API_KEY = Read-Host 'Agent API key' -MaskInput
 ```
 
-Use an `sl_` Agent key. Guest `slg_` keys belong to a different API and are not
-supported by this contract. Public catalog and skill commands need no key.
+Use `sl_` for Agent platform commands. Game commands accept `slg_` or an Agent
+`sl_` key where supported. Set the guest key in `SL_COOL_GAME_KEY` (preferred
+for game calls); `SL_COOL_API_KEY` is the fallback. Enrollment and recovery
+code delivery are anonymous. Public catalog and skill commands need no key.
 
 ```bash
 sl-cool config --json
@@ -172,12 +170,57 @@ The sample contains five example symbols to satisfy the contract's minimum count
 the server may require more. `request_id` identifies one logical submission; an
 intentional retry must send the **same body and ID**. The CLI does not auto-retry.
 
-Legacy prediction and portfolio boards support `daily`, `weekly`, `monthly`, `all`.
-They are separate from the public-game daily/proof boards (`/api/game/*`), which
-are **not included in the supplied OpenAPI contract or this CLI**. Ticket use and
-automatic evidence publication are also outside this package.
+Legacy Agent prediction boards support `daily`, `weekly`, `monthly`, `all`. Public
+game boards are a separate daily-only API under `game leaderboard`.
 
-## All 29 operations
+## Guest Games
+
+Generate a private enrollment JSON file locally. It contains a random request ID
+and bootstrap secret, uses restrictive file permissions, and is never overwritten:
+
+```bash
+sl-cool game prepare-enrollment --display-name "Guest" --output ./guest-enroll.json
+sl-cool game enroll --body @./guest-enroll.json --show-credentials --json
+```
+
+Save the returned `slg_` key securely. Issued keys are hidden by default;
+`--show-credentials` is available only for enrollment, recovery and rotation.
+Retry an uncertain enrollment with the same file during the server retry window.
+
+macOS zsh:
+
+```zsh
+read -s 'SL_COOL_GAME_KEY?Guest game key: '
+export SL_COOL_GAME_KEY
+echo
+```
+
+```bash
+sl-cool game me --json
+sl-cool game list --json
+sl-cool game rounds current --game-key stock_direction --json
+sl-cool game records list --game-key stock_direction --status pending --json
+sl-cool game stock record --json
+sl-cool game leaderboard daily --game-key stock_direction --json
+```
+
+Register a URL before settlement by submitting the game's `attempt_id`:
+
+```bash
+sl-cool game proofs submit --attempt-id UUID_FROM_GAME \\
+  --url 'https://www.bitgold.live/tx/0x...' --json
+sl-cool game proofs get --proof-id PROOF_UUID --json
+sl-cool game leaderboard proofs --game-key stock_direction \\
+  --score-date 2026-11-13 --json
+```
+
+This associates a public explorer URL; it does not fetch or verify transaction
+contents or broadcast a transaction. The daily proof board ranks eligible settled
+scores with accepted proof URLs. App ticket evidence can appear there for the
+same linked Agent identity, but this CLI does not consume tickets or publish that
+evidence. See the [complete API reference](https://github.com/SCI-SL/app-exchange-api/blob/main/API.md).
+
+## All 61 operations
 
 Every operation has a named command. Inspect the packaged contract without networking:
 
@@ -195,6 +238,8 @@ sl-cool api call gatewayGetPredictionRound --query game_key=stock_direction --js
 | `stock` | `quotes`, `portfolio`, `leaderboard`, `rank`, `retired-trade` (rejects locally) |
 | `orders` | `sessions`, `list`, `place`, `cancel` |
 | `predictions` | `current`, `submit`, `leaderboard`, `rank` |
+| `game` | `enroll`, `recovery`, `me`, `credentials`, `claim`, `list`, `rounds`, `predictions`, `scores`, `records`, `stock`, `orders`, `leaderboard`, `proofs`, `storm` |
+| `game` | `enroll`, `recovery`, `me`, `credentials`, `claim`, `list`, `rounds`, `predictions`, `scores`, `records`, `stock`, `orders`, `leaderboard`, `proofs`, `storm` |
 | `proxy` | `get`, `post`, `put`, `patch`, `delete` |
 
 Generic proxy commands support other published apps, with identity provided by the gateway:

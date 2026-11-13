@@ -2,12 +2,14 @@
 
 ## Inventory
 
-- `test_core.py`: about 30 parameterized unit/CLI tests for all 29 operation mappings,
+- `test_core.py`: parameterized unit/CLI tests for all 61 operation mappings,
   local schema validation, path encoding, orders, prediction files, credentials,
   dry-run, JSON diagnostics, parameter errors, base URL validation and REPL.
-- `test_full_e2e.py`: about 10 installed-command integration scenarios with a local
+- `test_full_e2e.py`: installed-command integration scenarios with a local
   HTTP contract fixture, plus a real Python stock-service workflow using isolated
   data files and a local relay. Every test must fail on missing dependencies.
+- `test_guest.py`: guest-key selection, enrollment/recovery credential reveal,
+  secret-safe failures, local input validation, and installed nested command tests.
 
 ## Workflows and verification
 
@@ -38,28 +40,31 @@ separately from fixture/backend tests.
 
 ## Results
 
-2026-11-11 (local build runtime: Python 3.12.12, macOS arm64):
+2026-11-13 (1.1.0, Python 3.12.12, macOS arm64):
 
 ```text
-PATH="/tmp/slcool-cli-wheel-check/bin:$PATH" CLI_ANYTHING_FORCE_INSTALLED=1 \
-  /tmp/slcool-cli-wheel-check/bin/python -m pytest -v --tb=short
-18 passed in 1.38s
+PATH="/tmp/slcool-wheel-110/bin:$PATH" CLI_ANYTHING_FORCE_INSTALLED=1 \
+  /tmp/slcool-wheel-110/bin/python -m pytest -v --tb=short
+34 passed in 5.92s
 ```
 
-The run used the cleanly installed, built wheel command, forced-installed mode,
-and ran outside the source working directory for command subprocesses. It verified
-all 29 OpenAPI operations, named CLI inputs, query/path validation, prohibited
-internal routes, JSON and dry-run modes, credentials and secret redaction, redirect
-and error handling, plus real local stock quotes/portfolio/leaderboard handlers
-through an authenticated test relay and isolated temporary data files.
+The run installed the built 1.1.0 wheel into a clean virtual environment, forced
+installed-command mode, and used subprocesses from outside the source working
+directory. It verified all 61 OpenAPI operations, guest and Agent key selection,
+enrollment-file permissions/non-overwrite, explicit one-time key reveal, OTP and
+secret redaction, no-retry behavior, proof submission before settlement, validation,
+and nested commands. It also exercised the actual Python stock service with
+isolated databases for quotes, portfolio, leaderboard, and a persisted pending
+game record. The gateway identity adapter was local; PHP enrollment, email and
+proof database behavior were not executed.
 
 Additional release checks:
 
 ```text
 ruff check cli_anything/slcool: All checks passed.
 python -m build: wheel and sdist built successfully.
-Fresh virtualenv install from dist/cli_anything_slcool-1.0.0-py3-none-any.whl: passed.
-Installed cli-anything-slcool api list --json: 29 operations.
+Fresh virtualenv install from cli_anything_slcool-1.1.0-py3-none-any.whl: passed.
+Installed cli-anything-slcool api list --json: 61 operations.
 ```
 
 This does not verify production Agent credentials, public DNS/gateway availability,
@@ -75,3 +80,20 @@ temporary working directory. The three real-stock integration tests remain
 unchanged and require a separate authorized backend checkout supplied through
 `SLCOOL_STOCK_SOURCE`. Missing backend source is an error when running the full
 suite; CI does not present its standalone checks as full backend verification.
+
+## 1.1.0 refinement plan (before implementation)
+
+- Preserve all 29 Agent operations and add 32 `/api/game/*` operations, including
+  the retired total-board entry with a local migration error (61 total).
+- Standalone guest contract workflows: enrollment request file permissions and
+  no overwrite; anonymous requests never send credentials; guest/Agent credential
+  selection; guest-only rotation/claim; opt-in issued-key output; secret-safe errors
+  and dry runs; OTP/UUID/date/proof exclusivity validation; pre-score proof URLs;
+  nested command help, installed subprocess discovery, and no automatic POST retry.
+- Real backend workflow: installed CLI creates a public stock record, lists it and
+  fetches its pending detail using the actual Python stock server and isolated
+  JSON storage through a local identity adapter. This does not test PHP guest
+  enrollment, email delivery or proof persistence; those use contract fixtures.
+- Validate all generated documentation links/anchors, operation coverage and
+  example request bodies against the bundled contract. Build and install the wheel
+  outside the checkout, run full tests locally, and run standalone tests in CI.

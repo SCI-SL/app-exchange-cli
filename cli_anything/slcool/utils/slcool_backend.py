@@ -22,20 +22,26 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
-def redact(value, secret=""):
+def redact(value, secret="", *, show_credentials=False):
     if isinstance(value, dict):
         return {
-            k: "[REDACTED]"
+            k: v
+            if show_credentials and k == "api_key" and isinstance(v, str) and v.startswith("slg_")
+            else "[REDACTED]"
             if re.search(r"token|secret|password|authorization|api.?key", k, re.IGNORECASE)
-            else redact(v, secret)
+            or (k == "code" and isinstance(v, str) and re.fullmatch(r"[0-9]{6}", v))
+            else redact(v, secret, show_credentials=show_credentials)
             for k, v in value.items()
         }
     if isinstance(value, list):
-        return [redact(item, secret) for item in value]
+        return [redact(item, secret, show_credentials=show_credentials) for item in value]
     if isinstance(value, str):
         if secret:
             value = value.replace(secret, "[REDACTED]")
-        return re.sub(r"\bsl_[A-Za-z0-9_-]+", "[REDACTED]", value)
+        for env in ("SL_COOL_API_KEY", "SL_COOL_GAME_KEY"):
+            if os.environ.get(env):
+                value = value.replace(os.environ[env], "[REDACTED]")
+        return re.sub(r"\bslg?_[A-Za-z0-9_-]+", "[REDACTED]", value)
     return value
 
 
@@ -62,16 +68,37 @@ def base_url(value):
     return value.rstrip("/")
 
 
-def execute(request, origin, timeout=20.0):
-    origin = base_url(origin)
-    token = os.environ.get("SL_COOL_API_KEY", "") if request["authenticated"] else ""
-    if request["authenticated"] and not token:
-        raise ApiError("Set SL_COOL_API_KEY to your sl_ Agent API key", kind="authentication")
-    if token and (token != token.strip() or any(ord(c) < 33 or ord(c) > 126 for c in token)):
+def credential(request):
+    policy = request.get("credential_policy", "agent" if request["authenticated"] else "anonymous")
+    if policy == "anonymous":
+        return ""
+    token = (
+        os.environ.get("SL_COOL_GAME_KEY") or os.environ.get("SL_COOL_API_KEY", "")
+        if policy in ("game", "guest") else os.environ.get("SL_COOL_API_KEY", "")
+    )
+    if not token:
         raise ApiError(
-            "SL_COOL_API_KEY contains whitespace or invalid header characters",
+            "Set SL_COOL_GAME_KEY or SL_COOL_API_KEY for game commands"
+            if policy in ("game", "guest") else "Set SL_COOL_API_KEY to your sl_ Agent API key",
             kind="authentication",
         )
+    if token and (token != token.strip() or any(ord(c) < 33 or ord(c) > 126 for c in token)):
+        raise ApiError(
+            "Credential contains whitespace or invalid header characters",
+            kind="authentication",
+        )
+    prefixes = ("slg_",) if policy == "guest" else ("sl_",) if policy == "agent" else ("sl_", "slg_")
+    if not token.startswith(prefixes):
+        raise ApiError(
+            "This operation requires " + " or ".join(prefixes) + " credentials",
+            kind="authentication",
+        )
+    return token
+
+
+def execute(request, origin, timeout=20.0, *, show_credentials=False):
+    origin = base_url(origin)
+    token = credential(request)
     headers = {
         "Accept": "application/json, text/markdown;q=0.9",
         "User-Agent": f"cli-anything-slcool/{__version__}",
@@ -119,4 +146,4 @@ def execute(request, origin, timeout=20.0):
                 body=redact(result, token),
                 kind="application",
             )
-    return redact(result, token)
+    return redact(result, token, show_credentials=show_credentials and request.get("issues_credentials", False))

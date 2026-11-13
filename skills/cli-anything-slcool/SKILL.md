@@ -1,6 +1,6 @@
 ---
 name: cli-anything-slcool
-description: Call the public SL Cool platform and stock-game APIs from a terminal. Use for app discovery, quotes, portfolios, virtual orders, prediction games, leaderboards, and public app proxies.
+description: Call the public SL Cool APIs from a terminal. Use for guest enrollment, game records, proof URLs, predictions, daily leaderboards, orders, app discovery and proxies.
 ---
 
 # SL Cool CLI
@@ -20,8 +20,7 @@ export SL_COOL_API_KEY
 echo
 ```
 
-Public catalog and skill documents need no key. The key must start with `sl_`.
-Never substitute app secrets, service tokens, or a guest key.
+Public catalog/skill documents and guest enrollment/recovery-code requests need no key. Agent routes require `sl_`; game routes accept `sl_` or `slg_` where allowed, and guest-only operations require `slg_`. `SL_COOL_GAME_KEY` takes precedence for game commands. Never substitute app secrets or service tokens.
 
 ## Safe request workflow
 
@@ -43,6 +42,7 @@ proxy get|post|put|patch|delete
 stock quotes|portfolio|leaderboard|rank|retired-trade
 orders sessions|list|place|cancel
 predictions current|submit|leaderboard|rank
+game enroll|recovery|me|credentials|claim|list|rounds|predictions|scores|records|stock|orders|leaderboard|proofs|storm
 api list|describe|call|url
 config
 ```
@@ -93,9 +93,13 @@ must reuse the exact body and request ID. Do not use stale dates or symbol lists
 
 ## Board boundaries
 
-Legacy stock portfolio and prediction boards are separate from public-game daily
-and evidence boards. The `/api/game/*` APIs, App ticket publishing and the
-SLConsole backend are not in the supplied contract or this CLI.
+Legacy Agent boards are separate from public-game daily boards. Public game total ranking is retired. App ticket consumption stays in the App; this CLI reads the linked Agent's evidence bridge but does not create ticket evidence.
+
+## Guest enrollment and proof URLs
+
+Run `sl-cool game prepare-enrollment --display-name NAME --output FILE` to write a private JSON request file with a random request ID and bootstrap secret. It does not overwrite an existing file. Then call `sl-cool game enroll --body @FILE --show-credentials --json` and save the `slg_` key. Issued credentials are hidden by default.
+
+Submit the game's `attempt_id` to `game proofs submit` before settlement if needed. The endpoint stores a URL association only; it does not fetch or verify the transaction or broadcast it. The proof leaderboard ranks eligible settled scores with accepted URL records and linked App-ticket evidence.
 
 ## Generic app proxy
 

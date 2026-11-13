@@ -13,7 +13,7 @@ from cli_anything.slcool.utils.slcool_backend import ApiError, base_url, execute
 
 
 def test_all_openapi_operations_have_commands():
-    assert len(operations()) == 29
+    assert len(operations()) == 61
     assert set(operations()) == set(COMMANDS)
 
 
@@ -135,7 +135,7 @@ def test_auth_key_is_required_only_for_protected_operations(monkeypatch):
             assert "Authorization" not in request.headers
             return Response()
 
-    backend.build_opener = lambda *_: Opener()
+    monkeypatch.setattr(backend, "build_opener", lambda *_: Opener())
     assert perform(prepare("getPublishedStockSkill"), "https://open.sl.cool") == "# Public skill"
 
 
@@ -183,7 +183,7 @@ def test_json_cli_output_and_generic_url():
     runner = CliRunner()
     listing = runner.invoke(cli, ["--json", "api", "list"])
     assert listing.exit_code == 0, listing.output
-    assert len(json.loads(listing.output)) == 29
+    assert len(json.loads(listing.output)) == 61
     url = runner.invoke(
         cli,
         [
@@ -218,4 +218,4 @@ def test_installed_command_help_and_machine_output():
         )
         assert result.returncode == 0, result.stderr
         if args[-1] == "list":
-            assert len(json.loads(result.stdout)) == 29
+            assert len(json.loads(result.stdout)) == 61

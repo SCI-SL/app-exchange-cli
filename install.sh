@@ -13,12 +13,24 @@ case "$repository" in
   *) echo "Repository must be OWNER/REPOSITORY." >&2; exit 2 ;;
 esac
 
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "Python 3.10 or newer is required. Install Python, then rerun this command." >&2
-  exit 1
+python_runtime=""
+if [ -n "${SLCOOL_CLI_PYTHON:-}" ]; then
+  if "$SLCOOL_CLI_PYTHON" -c 'import sys; raise SystemExit(sys.version_info < (3, 10))'; then
+    python_runtime="$SLCOOL_CLI_PYTHON"
+  else
+    echo "SLCOOL_CLI_PYTHON must point to Python 3.10 or newer." >&2
+    exit 1
+  fi
+else
+  for candidate in python3.14 python3.13 python3.12 python3.11 python3.10 python3; do
+    if command -v "$candidate" >/dev/null 2>&1 && "$candidate" -c 'import sys; raise SystemExit(sys.version_info < (3, 10))'; then
+      python_runtime="$(command -v "$candidate")"
+      break
+    fi
+  done
 fi
-if ! python3 -c 'import sys; raise SystemExit(sys.version_info < (3, 10))'; then
-  echo "Python 3.10 or newer is required." >&2
+if [ -z "$python_runtime" ]; then
+  echo "Python 3.10 or newer is required. Set SLCOOL_CLI_PYTHON to its executable if needed." >&2
   exit 1
 fi
 if ! command -v pipx >/dev/null 2>&1; then
@@ -27,7 +39,7 @@ if ! command -v pipx >/dev/null 2>&1; then
   exit 1
 fi
 
-wheel_url="$(python3 - "$repository" <<'PY'
+wheel_url="$("$python_runtime" - "$repository" <<'PY'
 import json
 import re
 import sys
@@ -55,7 +67,7 @@ temporary_directory="$(mktemp -d)"
 trap 'rm -rf "$temporary_directory"' EXIT HUP INT TERM
 wheel_name="${wheel_url##*/}"
 wheel_path="$temporary_directory/$wheel_name"
-python3 - "$wheel_url" "$wheel_path" <<'PY'
+"$python_runtime" - "$wheel_url" "$wheel_path" <<'PY'
 import sys
 from urllib.request import urlopen
 
@@ -63,5 +75,5 @@ with urlopen(sys.argv[1], timeout=60) as response, open(sys.argv[2], "wb") as wh
     while chunk := response.read(1024 * 1024):
         wheel.write(chunk)
 PY
-pipx install --force "$wheel_path"
+pipx install --force --python "$python_runtime" "$wheel_path"
 echo "Installed. Run: sl-cool --help"

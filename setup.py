@@ -4,7 +4,7 @@ from setuptools import find_namespace_packages, setup
 
 setup(
     name="cli-anything-slcool",
-    version="1.0.1",
+    version="1.1.0",
     description="SL Cool public gateway and stock-game command-line client",
     long_description=Path(__file__).with_name("README.md").read_text(encoding="utf-8"),
     long_description_content_type="text/markdown",
